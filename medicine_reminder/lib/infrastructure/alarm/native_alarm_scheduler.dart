@@ -57,7 +57,7 @@ class NativeAlarmScheduler implements AlarmRepository {
     try {
       final notificationId = _generateNotificationId(medicineId, scheduledTime);
 
-      // Android notification details
+      // Android notification details with full-screen intent and DnD bypass
       final androidDetails = AndroidNotificationDetails(
         'medicine_reminders',
         'Medicine Reminders',
@@ -67,6 +67,15 @@ class NativeAlarmScheduler implements AlarmRepository {
         showWhen: true,
         enableVibration: true,
         playSound: true,
+        // Full-screen intent - shows notification even when screen is locked
+        fullScreenIntent: true,
+        // Alarm category - bypasses Do Not Disturb mode
+        category: AndroidNotificationCategory.alarm,
+        // Use alarm audio attributes
+        audioAttributesUsage: AudioAttributesUsage.alarm,
+        // Visibility on lock screen
+        visibility: NotificationVisibility.public,
+        // Actions
         actions: <AndroidNotificationAction>[
           const AndroidNotificationAction(
             'taken',
@@ -86,11 +95,15 @@ class NativeAlarmScheduler implements AlarmRepository {
         ],
       );
 
-      // iOS notification details
+      // iOS notification details with critical alert (bypasses DnD)
       const iosDetails = DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
+        // Critical alert - bypasses Do Not Disturb and silent mode
+        // Note: Requires special entitlement from Apple
+        interruptionLevel: InterruptionLevel.critical,
+        sound: 'default',
         categoryIdentifier: 'medicine_reminder',
       );
 

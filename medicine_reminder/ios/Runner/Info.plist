@@ -62,5 +62,16 @@
 		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>
+
+	<!--
+	Note: Critical alerts (bypassing Do Not Disturb) require:
+	1. Special entitlement from Apple
+	2. Adding com.apple.developer.usernotifications.critical-alerts to entitlements
+	3. App review approval
+
+	For local development and testing, the app will work without critical alerts
+	but won't bypass DnD on iOS. Apply for the entitlement if needed.
+	See: https://developer.apple.com/documentation/usernotifications/ask_permission_to_use_notifications
+	-->
 </dict>
 </plist>

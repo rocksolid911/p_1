@@ -9,10 +9,15 @@ A production-ready mobile application for managing medicine schedules with presc
 - **AI-Powered Extraction**: On-device OCR using ML Kit to extract medicine details
 - **Smart Parsing**: Automatic detection of medicine name, dosage, frequency, and schedule
 - **Native Alarms**: OS-level reminders using AlarmManager (Android) and UNUserNotificationCenter (iOS)
+- **🚨 Full-Screen Notifications**: Alarm notifications that show even when phone is locked
+- **🔕 DnD Bypass**: Notifications bypass Do Not Disturb mode (treated as alarm clock)
+- **📱 Screen Wake-up**: Automatically turns on screen for medicine reminders
 - **Manual Management**: Add, edit, and delete medicines manually
 - **Firebase Integration**: User authentication, cloud sync, and backup
 - **Adherence Tracking**: Monitor medicine intake history and compliance
 - **Offline Support**: Local database with automatic sync when online
+
+> **⚠️ Critical Feature**: Medicine reminders use full-screen intent and alarm category to ensure you NEVER miss a dose, even when your phone is locked or on Do Not Disturb. See [DND_BYPASS_GUIDE.md](DND_BYPASS_GUIDE.md) for details.
 
 ### Technical Highlights
 - Clean Architecture (Domain, Application, Infrastructure, Presentation layers)
@@ -32,8 +37,9 @@ A production-ready mobile application for managing medicine schedules with presc
 4. [Running the App](#running-the-app)
 5. [Architecture](#architecture)
 6. [Features Explained](#features-explained)
-7. [Testing](#testing)
-8. [Troubleshooting](#troubleshooting)
+7. [DnD Bypass & Full-Screen Notifications](#dnd-bypass--full-screen-notifications)
+8. [Testing](#testing)
+9. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -412,6 +418,78 @@ User action creates ReminderLog
     ↓
 Sync to Firestore
 ```
+
+---
+
+## DnD Bypass & Full-Screen Notifications
+
+### 🚨 Critical Feature for Medicine Reminders
+
+Medicine reminders are time-critical and potentially life-saving. This app implements **full-screen intent notifications** and **Do Not Disturb (DnD) bypass** to ensure users NEVER miss a dose.
+
+### What This Means:
+- ✅ Notifications show even when phone is **locked**
+- ✅ Screen **turns on automatically** for reminders
+- ✅ **Bypasses Do Not Disturb** mode (treated as alarm clock)
+- ✅ Uses **highest priority alarm audio**
+- ✅ Shows **full content on lock screen**
+
+### Android Configuration
+
+**Permissions** (`AndroidManifest.xml`):
+```xml
+<!-- Full-screen intent for showing notifications when locked -->
+<uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
+
+<!-- Bypass DnD for alarms -->
+<uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY"/>
+```
+
+**Activity Configuration**:
+```xml
+<activity
+    android:showWhenLocked="true"
+    android:turnScreenOn="true">
+```
+
+**Notification Setup** (`native_alarm_scheduler.dart:61-77`):
+```dart
+AndroidNotificationDetails(
+  fullScreenIntent: true,              // Shows when locked
+  category: AndroidNotificationCategory.alarm,  // Bypasses DnD
+  audioAttributesUsage: AudioAttributesUsage.alarm,  // Alarm priority
+  visibility: NotificationVisibility.public,  // Full content on lock screen
+)
+```
+
+### iOS Configuration
+
+**Critical Alerts** (requires Apple entitlement):
+```dart
+DarwinNotificationDetails(
+  interruptionLevel: InterruptionLevel.critical,  // Bypasses DnD
+)
+```
+
+⚠️ **Note**: iOS critical alerts require special approval from Apple. See [DND_BYPASS_GUIDE.md](DND_BYPASS_GUIDE.md) for how to apply.
+
+### User Setup (Android 12+)
+
+For full functionality, users need to:
+1. Grant "Alarms & reminders" special app access
+2. Allow notification permissions
+3. Disable battery optimization (recommended)
+
+### Complete Documentation
+
+For detailed information including:
+- Platform-specific behavior
+- iOS critical alert entitlement process
+- Testing procedures
+- Troubleshooting DnD issues
+- Battery optimization handling
+
+**See: [DND_BYPASS_GUIDE.md](DND_BYPASS_GUIDE.md)**
 
 ---
 
