@@ -44,9 +44,10 @@ class MLKitOCRService {
         final tempFile = File('${tempDir.path}/temp_page_$i.png');
 
         // Write the rendered image bytes to file
-        final imageBytes = await pageImage?.createImageIfNotAvailable();
-        if (imageBytes != null) {
-          await tempFile.writeAsBytes(imageBytes);
+        final renderedImage = await pageImage?.createImageIfNotAvailable();
+        if (renderedImage != null) {
+          final pngBytes = img.encodePng(renderedImage);
+          await tempFile.writeAsBytes(pngBytes);
         }
 
         // Extract text from the rendered image
