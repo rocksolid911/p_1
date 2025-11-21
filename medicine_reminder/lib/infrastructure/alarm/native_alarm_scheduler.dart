@@ -8,9 +8,6 @@ import '../../domain/repositories/alarm_repository.dart';
 class NativeAlarmScheduler implements AlarmRepository {
   final FlutterLocalNotificationsPlugin _notifications;
 
-  // Counter for unique notification IDs
-  static int _notificationIdCounter = 1000;
-
   NativeAlarmScheduler({
     FlutterLocalNotificationsPlugin? notifications,
   }) : _notifications = notifications ?? FlutterLocalNotificationsPlugin();

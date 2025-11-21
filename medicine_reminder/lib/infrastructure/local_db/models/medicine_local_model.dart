@@ -67,7 +67,7 @@ class MedicineLocalModel {
   /// Convert from local model to domain entity
   Medicine toEntity() {
     final List<dynamic> timesJson = jsonDecode(times);
-    final times = timesJson
+    final timesList = timesJson
         .map((t) => DateTime.fromMillisecondsSinceEpoch(t as int))
         .toList();
 
@@ -84,7 +84,7 @@ class MedicineLocalModel {
       dosage: dosage,
       form: MedicineForm.values.firstWhere((e) => e.name == form),
       scheduleType: ScheduleType.values.firstWhere((e) => e.name == scheduleType),
-      times: times,
+      times: timesList,
       intervalHours: intervalHours,
       daysOfWeek: daysOfWeekList,
       startDate: DateTime.fromMillisecondsSinceEpoch(startDate),

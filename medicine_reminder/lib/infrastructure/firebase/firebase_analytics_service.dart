@@ -43,9 +43,8 @@ class FirebaseAnalyticsService {
       name: 'medicine_added',
       parameters: {
         'medicine_name': medicine.name,
-        'medicine_type': medicine.type,
-        'frequency': medicine.frequency,
-        'has_prescription': medicine.prescriptionImageUrl != null,
+        'medicine_form': medicine.form.displayName,
+        'schedule_type': medicine.scheduleType.displayName,
       },
     );
   }

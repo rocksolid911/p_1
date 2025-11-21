@@ -140,8 +140,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: taken
-              ? Colors.green.withOpacity(0.1)
-              : Colors.red.withOpacity(0.1),
+              ? Colors.green.withValues(alpha: 0.1)
+              : Colors.red.withValues(alpha: 0.1),
           child: Icon(
             taken ? Icons.check : Icons.close,
             color: taken ? Colors.green : Colors.red,
