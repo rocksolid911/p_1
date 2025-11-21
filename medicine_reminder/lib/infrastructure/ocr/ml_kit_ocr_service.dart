@@ -37,7 +37,6 @@ class MLKitOCRService {
         final pageImage = await page.render(
           width: (page.width * 2).toInt(),
           height: (page.height * 2).toInt(),
-          format: pdf_render.PdfPageImageFormat.png,
         );
 
         // Convert to temporary file
@@ -45,8 +44,9 @@ class MLKitOCRService {
         final tempFile = File('${tempDir.path}/temp_page_$i.png');
 
         // Write the rendered image bytes to file
-        if (pageImage != null && pageImage.bytes != null) {
-          await tempFile.writeAsBytes(pageImage.bytes);
+        final imageBytes = await pageImage?.createImageIfNotAvailable();
+        if (imageBytes != null) {
+          await tempFile.writeAsBytes(imageBytes);
         }
 
         // Extract text from the rendered image
