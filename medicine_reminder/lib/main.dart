@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'presentation/screens/auth/splash_screen.dart';
 import 'infrastructure/alarm/native_alarm_scheduler.dart';
+import 'infrastructure/firebase/firebase_auth_repository.dart';
+import 'infrastructure/firebase/firebase_analytics_service.dart';
+import 'presentation/cubits/auth/auth_cubit.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,8 +22,13 @@ void main() async {
   await alarmScheduler.initialize();
 
   runApp(
-    const ProviderScope(
-      child: MedicineReminderApp(),
+    MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthCubit>(
+          create: (context) => AuthCubit(FirebaseAuthRepository()),
+        ),
+      ],
+      child: const MedicineReminderApp(),
     ),
   );
 }
@@ -30,9 +38,12 @@ class MedicineReminderApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final analyticsService = FirebaseAnalyticsService();
+
     return MaterialApp(
       title: 'Medicine Reminder',
       debugShowCheckedModeBanner: false,
+      navigatorObservers: [analyticsService.analyticsObserver],
       theme: ThemeData(
         primarySwatch: Colors.blue,
         primaryColor: const Color(0xFF2196F3),

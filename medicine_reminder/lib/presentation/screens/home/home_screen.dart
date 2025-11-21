@@ -1,23 +1,30 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../medicine/add_medicine_screen.dart';
 import '../prescription/prescription_upload_screen.dart';
 import '../history/history_screen.dart';
 import '../settings/settings_screen.dart';
 import '../auth/login_screen.dart';
-import '../../../infrastructure/firebase/firebase_auth_repository.dart';
+import '../../cubits/auth/auth_cubit.dart';
+import '../../cubits/auth/auth_state.dart';
+import '../../../infrastructure/firebase/firebase_analytics_service.dart';
 
-class HomeScreen extends ConsumerStatefulWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  final _analytics = FirebaseAnalyticsService();
 
-  final _authRepository = FirebaseAuthRepository();
+  @override
+  void initState() {
+    super.initState();
+    _analytics.logScreenView('Home Screen', 'HomeScreen');
+  }
 
   Future<void> _handleSignOut() async {
     final confirmed = await showDialog<bool>(
@@ -39,7 +46,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
 
     if (confirmed == true) {
-      await _authRepository.signOut();
+      await context.read<AuthCubit>().signOut();
+      _analytics.logLogout();
+      _analytics.clearUserId();
 
       if (!mounted) return;
 
