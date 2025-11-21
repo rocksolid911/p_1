@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:timezone/data/latest.dart' as tz;
+import 'firebase_options.dart';
 import 'presentation/screens/auth/splash_screen.dart';
 import 'infrastructure/alarm/native_alarm_scheduler.dart';
 import 'infrastructure/firebase/firebase_auth_repository.dart';
@@ -12,7 +13,9 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Firebase
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   // Initialize timezone data for alarms
   tz.initializeTimeZones();

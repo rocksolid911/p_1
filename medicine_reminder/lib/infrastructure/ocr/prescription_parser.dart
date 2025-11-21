@@ -27,9 +27,7 @@ class PrescriptionParser {
         }
 
         // Try to extract date
-        if (prescriptionDate == null) {
-          prescriptionDate = _extractDate(line);
-        }
+        prescriptionDate ??= _extractDate(line);
 
         // Try to extract medicine
         final medicine = _extractMedicine(line, i < lines.length - 1 ? lines[i + 1] : null);

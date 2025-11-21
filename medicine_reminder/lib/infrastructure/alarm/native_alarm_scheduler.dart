@@ -55,7 +55,7 @@ class NativeAlarmScheduler implements AlarmRepository {
       final notificationId = _generateNotificationId(medicineId, scheduledTime);
 
       // Android notification details with full-screen intent and DnD bypass
-      final androidDetails = AndroidNotificationDetails(
+      const androidDetails = AndroidNotificationDetails(
         'medicine_reminders',
         'Medicine Reminders',
         channelDescription: 'Reminders for taking medicines',
@@ -110,7 +110,10 @@ class NativeAlarmScheduler implements AlarmRepository {
       );
 
       // Schedule the notification
-      final scheduledDate = tz.TzDateTime.from(scheduledTime, tz.local);
+      final scheduledDate = tz.TZDateTime.from(
+        scheduledTime,
+        tz.local,
+      );
 
       await _notifications.zonedSchedule(
         notificationId,
@@ -119,8 +122,9 @@ class NativeAlarmScheduler implements AlarmRepository {
         scheduledDate,
         notificationDetails,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
+        // uiLocalNotificationDateInterpretation:
+        //     UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dateAndTime,
         payload: '$medicineId|${scheduledTime.millisecondsSinceEpoch}',
       );
     } catch (e) {

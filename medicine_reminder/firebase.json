@@ -1,11 +1,1 @@
-{
-  "firestore": {
-    "database": "(default)",
-    "location": "asia-south1",
-    "rules": "rules_version = '2';",
-    "indexes": "firestore.indexes.json"
-  },
-  "remoteconfig": {
-    "template": "remoteconfig.template.json"
-  }
-}
+{"firestore":{"database":"(default)","location":"asia-south1","rules":"rules_version = '2';","indexes":"firestore.indexes.json"},"remoteconfig":{"template":"remoteconfig.template.json"},"flutter":{"platforms":{"android":{"default":{"projectId":"medicinereminder-deb43","appId":"1:901873618540:android:08512c236bb42f023d1249","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"medicinereminder-deb43","configurations":{"android":"1:901873618540:android:08512c236bb42f023d1249","ios":"1:901873618540:ios:572c8e4975a975683d1249","macos":"1:901873618540:ios:572c8e4975a975683d1249","web":"1:901873618540:web:b663f1750bff48833d1249","windows":"1:901873618540:web:961ba80a653c46783d1249"}}}}}}

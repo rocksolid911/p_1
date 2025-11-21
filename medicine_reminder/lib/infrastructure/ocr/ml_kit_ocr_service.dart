@@ -1,8 +1,9 @@
 import 'dart:io';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:pdf_render/pdf_render.dart' as pdf_render;
+
 import 'package:path_provider/path_provider.dart';
 import 'package:image/image.dart' as img;
+import 'package:pdfrx/pdfrx.dart' as pdf_render;
 
 /// On-device OCR service using ML Kit
 class MLKitOCRService {
@@ -27,11 +28,11 @@ class MLKitOCRService {
   Future<String> extractTextFromPDF(File pdfFile) async {
     try {
       final doc = await pdf_render.PdfDocument.openFile(pdfFile.path);
-      final pageCount = doc.pageCount;
+      final pageCount = doc.pages.length;
       final buffer = StringBuffer();
 
       for (var i = 1; i <= pageCount; i++) {
-        final page = await doc.getPage(i);
+        final page = doc.pages[i];
 
         // Render PDF page to image at higher resolution for better OCR
         final pageImage = await page.render(
@@ -44,9 +45,9 @@ class MLKitOCRService {
         final tempFile = File('${tempDir.path}/temp_page_$i.png');
 
         // Write the rendered image bytes to file
-        final renderedImage = await pageImage?.createImageIfNotAvailable();
+        final renderedImage = await pageImage?.createImage();
         if (renderedImage != null) {
-          final pngBytes = img.encodePng(renderedImage);
+          final pngBytes = img.encodePng(renderedImage as img.Image);
           await tempFile.writeAsBytes(pngBytes);
         }
 
