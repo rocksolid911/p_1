@@ -207,7 +207,7 @@ class _HomeContent extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2196F3).withOpacity(0.1),
+                      color: const Color(0xFF2196F3).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
@@ -320,8 +320,8 @@ class _HomeContent extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: taken
-                    ? Colors.green.withOpacity(0.1)
-                    : const Color(0xFF2196F3).withOpacity(0.1),
+                    ? Colors.green.withValues(alpha: 0.1)
+                    : const Color(0xFF2196F3).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(

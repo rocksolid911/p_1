@@ -256,7 +256,7 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
                     .map((time) => Chip(
                           label: Text(_formatTime(time)),
                           backgroundColor:
-                              const Color(0xFF2196F3).withOpacity(0.1),
+                              const Color(0xFF2196F3).withValues(alpha: 0.1),
                         ))
                     .toList(),
               ),

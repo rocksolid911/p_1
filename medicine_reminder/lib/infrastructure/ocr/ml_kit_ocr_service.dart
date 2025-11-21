@@ -33,27 +33,30 @@ class MLKitOCRService {
       for (var i = 1; i <= pageCount; i++) {
         final page = await doc.getPage(i);
 
-        // Render PDF page to image
+        // Render PDF page to image at higher resolution for better OCR
         final pageImage = await page.render(
-          width: page.width * 2, // Higher resolution for better OCR
-          height: page.height * 2,
+          width: (page.width * 2).toInt(),
+          height: (page.height * 2).toInt(),
+          format: pdf_render.PdfPageImageFormat.png,
         );
 
         // Convert to temporary file
         final tempDir = await getTemporaryDirectory();
         final tempFile = File('${tempDir.path}/temp_page_$i.png');
 
-        // Convert the rendered image to PNG and save
-        final imageBytes = pageImage!.bytes;
-        await tempFile.writeAsBytes(imageBytes);
+        // Write the rendered image bytes to file
+        if (pageImage != null && pageImage.bytes != null) {
+          await tempFile.writeAsBytes(pageImage.bytes);
+        }
 
         // Extract text from the rendered image
-        final text = await extractTextFromImage(tempFile);
-        buffer.writeln(text);
+        if (await tempFile.exists()) {
+          final text = await extractTextFromImage(tempFile);
+          buffer.writeln(text);
 
-        // Clean up
-        await tempFile.delete();
-        await page.close();
+          // Clean up
+          await tempFile.delete();
+        }
       }
 
       await doc.dispose();
