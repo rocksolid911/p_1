@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import '../medicine/add_medicine_screen.dart';
 import '../prescription/prescription_upload_screen.dart';
 import '../history/history_screen.dart';
@@ -7,6 +8,9 @@ import '../settings/settings_screen.dart';
 import '../auth/login_screen.dart';
 import '../../cubits/auth/auth_cubit.dart';
 import '../../cubits/auth/auth_state.dart';
+import '../../cubits/medicine/medicine_cubit.dart';
+import '../../cubits/medicine/medicine_state.dart';
+import '../../../domain/entities/medicine.dart';
 import '../../../infrastructure/firebase/firebase_analytics_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -169,16 +173,44 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _HomeContent extends StatelessWidget {
+class _HomeContent extends StatefulWidget {
   const _HomeContent();
 
   @override
+  State<_HomeContent> createState() => _HomeContentState();
+}
+
+class _HomeContentState extends State<_HomeContent> {
+  @override
+  void initState() {
+    super.initState();
+    // Load medicines when home screen opens
+    final currentUser = fb_auth.FirebaseAuth.instance.currentUser;
+    if (currentUser != null) {
+      context.read<MedicineCubit>().watchMedicines(currentUser.uid);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return BlocBuilder<MedicineCubit, MedicineState>(
+      builder: (context, state) {
+        if (state is MedicineLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        List<Medicine> medicines = [];
+        if (state is MedicineLoaded) {
+          medicines = state.medicines.where((m) => m.isActive).toList();
+        } else if (state is MedicineOperationSuccess) {
+          medicines = state.medicines.where((m) => m.isActive).toList();
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           // Welcome card
           Card(
             child: Padding(
@@ -238,54 +270,92 @@ class _HomeContent extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          // Time-based medicine cards
-          _buildTimeSection('🌅 Morning', [
-            _buildMedicineCard(
-              'Aspirin',
-              '100 mg',
-              '08:00 AM',
-              'After breakfast',
-              false,
-            ),
-          ]),
-          const SizedBox(height: 16),
-          _buildTimeSection('☀️ Afternoon', [
-            _buildMedicineCard(
-              'Vitamin D',
-              '1000 IU',
-              '02:00 PM',
-              'With meal',
-              false,
-            ),
-          ]),
-          const SizedBox(height: 16),
-          _buildTimeSection('🌇 Evening', [
-            _buildMedicineCard(
-              'Blood Pressure',
-              '5 mg',
-              '06:00 PM',
-              'Before dinner',
-              false,
-            ),
-          ]),
-          const SizedBox(height: 16),
-          _buildTimeSection('🌙 Night', [
-            _buildMedicineCard(
-              'Sleep Aid',
-              '10 mg',
-              '10:00 PM',
-              'At bedtime',
-              false,
-            ),
-          ]),
-          const SizedBox(height: 80),
-        ],
-      ),
+              const SizedBox(height: 16),
+              // Display medicines by time of day
+              if (medicines.isEmpty)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.medication_outlined,
+                          size: 64,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No medicines added yet',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Tap the + button to add your first medicine',
+                          style: TextStyle(color: Colors.grey),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                ..._buildMedicinesByTime(medicines),
+              const SizedBox(height: 80),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildTimeSection(String title, List<Widget> medicines) {
+  List<Widget> _buildMedicinesByTime(List<Medicine> medicines) {
+    // Group medicines by time of day
+    final morning = <Medicine>[];
+    final afternoon = <Medicine>[];
+    final evening = <Medicine>[];
+    final night = <Medicine>[];
+
+    for (final medicine in medicines) {
+      for (final time in medicine.times) {
+        final hour = time.hour;
+        if (hour >= 5 && hour < 12) {
+          if (!morning.any((m) => m.id == medicine.id)) morning.add(medicine);
+        } else if (hour >= 12 && hour < 17) {
+          if (!afternoon.any((m) => m.id == medicine.id)) afternoon.add(medicine);
+        } else if (hour >= 17 && hour < 21) {
+          if (!evening.any((m) => m.id == medicine.id)) evening.add(medicine);
+        } else {
+          if (!night.any((m) => m.id == medicine.id)) night.add(medicine);
+        }
+      }
+    }
+
+    final sections = <Widget>[];
+
+    if (morning.isNotEmpty) {
+      sections.add(_buildTimeSection('🌅 Morning', morning));
+      sections.add(const SizedBox(height: 16));
+    }
+    if (afternoon.isNotEmpty) {
+      sections.add(_buildTimeSection('☀️ Afternoon', afternoon));
+      sections.add(const SizedBox(height: 16));
+    }
+    if (evening.isNotEmpty) {
+      sections.add(_buildTimeSection('🌇 Evening', evening));
+      sections.add(const SizedBox(height: 16));
+    }
+    if (night.isNotEmpty) {
+      sections.add(_buildTimeSection('🌙 Night', night));
+      sections.add(const SizedBox(height: 16));
+    }
+
+    return sections;
+  }
+
+  Widget _buildTimeSection(String title, List<Medicine> medicines) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -297,82 +367,85 @@ class _HomeContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        ...medicines,
+        ...medicines.map((medicine) => _buildMedicineCard(medicine)),
       ],
     );
   }
 
-  Widget _buildMedicineCard(
-    String name,
-    String dosage,
-    String time,
-    String notes,
-    bool taken,
-  ) {
+  Widget _buildMedicineCard(Medicine medicine) {
+    // Get times for display (format the first time for now)
+    final timeStr = medicine.times.isNotEmpty
+        ? _formatTime(medicine.times.first)
+        : '--:--';
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2196F3).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            _getMedicineIcon(medicine.form),
+            color: const Color(0xFF2196F3),
+          ),
+        ),
+        title: Text(
+          medicine.name,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Medicine icon
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: taken
-                    ? Colors.green.withValues(alpha: 0.1)
-                    : const Color(0xFF2196F3).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+            Text('${medicine.dosage} • $timeStr'),
+            if (medicine.notes != null && medicine.notes!.isNotEmpty)
+              Text(
+                medicine.notes!,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
               ),
-              child: Icon(
-                Icons.medication,
-                color: taken ? Colors.green : const Color(0xFF2196F3),
-              ),
-            ),
-            const SizedBox(width: 16),
-            // Medicine details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$dosage • $time',
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                  if (notes.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      notes,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            // Action button
-            taken
-                ? const Icon(Icons.check_circle, color: Colors.green)
-                : IconButton(
-                    icon: const Icon(Icons.check_circle_outline),
-                    onPressed: () {
-                      // Mark as taken
-                    },
-                  ),
           ],
+        ),
+        trailing: IconButton(
+          icon: Icon(
+            Icons.check_circle_outline,
+            color: Colors.grey[400],
+          ),
+          onPressed: () {
+            // TODO: Mark as taken
+          },
         ),
       ),
     );
+  }
+
+  IconData _getMedicineIcon(MedicineForm form) {
+    switch (form) {
+      case MedicineForm.tablet:
+      case MedicineForm.capsule:
+        return Icons.medication;
+      case MedicineForm.syrup:
+        return Icons.local_drink;
+      case MedicineForm.injection:
+        return Icons.vaccines;
+      case MedicineForm.drops:
+        return Icons.water_drop;
+      case MedicineForm.inhaler:
+        return Icons.air;
+      case MedicineForm.cream:
+      case MedicineForm.ointment:
+        return Icons.healing;
+    }
+  }
+
+  String _formatTime(DateTime time) {
+    final hour = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+    final period = time.hour >= 12 ? 'PM' : 'AM';
+    return '${hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')} $period';
   }
 
   String _getGreeting() {

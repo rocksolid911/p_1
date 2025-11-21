@@ -47,6 +47,7 @@ dependencies:
   # OCR & ML Kit
   google_ml_kit: ^0.20.0
   google_mlkit_text_recognition: ^0.15.0
+  google_generative_ai: ^0.4.0
 
   # UI & Utilities
   intl: ^0.18.1

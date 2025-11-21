@@ -1,6 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:uuid/uuid.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import '../../../domain/entities/prescription.dart';
+import '../../../domain/entities/medicine.dart';
+import '../../../infrastructure/alarm/native_alarm_scheduler.dart';
+import '../../cubits/medicine/medicine_cubit.dart';
 
 class PrescriptionReviewScreen extends StatefulWidget {
   final ParsedPrescription prescription;
@@ -18,6 +24,8 @@ class PrescriptionReviewScreen extends StatefulWidget {
 
 class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
   late List<ParsedMedicine> _medicines;
+  final _uuid = const Uuid();
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -26,19 +34,92 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
   }
 
   Future<void> _saveMedicines() async {
-    // TODO: Implement saving medicines to database
-    // This will create Medicine entities and save them
+    if (_medicines.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No medicines to save'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
 
-    if (!mounted) return;
+    setState(() {
+      _isSaving = true;
+    });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Medicines saved successfully!'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    try {
+      // Get current user
+      final currentUser = fb_auth.FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception('User not logged in');
+      }
 
-    Navigator.of(context).popUntil((route) => route.isFirst);
+      final alarmScheduler = context.read<NativeAlarmScheduler>();
+      final medicineCubit = context.read<MedicineCubit>();
+
+      // Convert ParsedMedicine to Medicine entities and save
+      for (final parsedMed in _medicines) {
+        // Calculate end date based on duration
+        DateTime? endDate;
+        if (parsedMed.duration != null) {
+          endDate = DateTime.now().add(Duration(days: parsedMed.duration!));
+        }
+
+        // Use suggested times or default to 3 times a day
+        List<DateTime> times = parsedMed.suggestedTimes ?? [
+          DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day, 8, 0),
+          DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day, 14, 0),
+          DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day, 20, 0),
+        ];
+
+        final medicine = Medicine(
+          id: _uuid.v4(),
+          userId: currentUser.uid,
+          name: parsedMed.name,
+          dosage: parsedMed.dosage ?? 'As prescribed',
+          form: parsedMed.form ?? MedicineForm.tablet,
+          scheduleType: ScheduleType.fixedTimes,
+          times: times,
+          startDate: DateTime.now(),
+          endDate: endDate,
+          notes: parsedMed.timing,
+          isActive: true,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        // Save to database
+        await medicineCubit.addMedicine(medicine, currentUser.uid);
+
+        // Schedule alarms
+        await alarmScheduler.scheduleMedicineAlarms(medicine);
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${_medicines.length} medicines saved and alarms scheduled!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save medicines: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
   }
 
   @override
@@ -162,9 +243,18 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _saveMedicines,
-        icon: const Icon(Icons.check),
-        label: const Text('Save All'),
+        onPressed: _isSaving ? null : _saveMedicines,
+        icon: _isSaving
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : const Icon(Icons.check),
+        label: Text(_isSaving ? 'Saving...' : 'Save All'),
       ),
     );
   }
