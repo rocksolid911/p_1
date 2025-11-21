@@ -6,8 +6,12 @@ import 'firebase_options.dart';
 import 'presentation/screens/auth/splash_screen.dart';
 import 'infrastructure/alarm/native_alarm_scheduler.dart';
 import 'infrastructure/firebase/firebase_auth_repository.dart';
+import 'infrastructure/firebase/firebase_medicine_repository.dart';
+import 'infrastructure/firebase/firebase_reminder_log_repository.dart';
 import 'infrastructure/firebase/firebase_analytics_service.dart';
 import 'presentation/cubits/auth/auth_cubit.dart';
+import 'presentation/cubits/medicine/medicine_cubit.dart';
+import 'presentation/cubits/reminder_log/reminder_log_cubit.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,14 +28,33 @@ void main() async {
   final alarmScheduler = NativeAlarmScheduler();
   await alarmScheduler.initialize();
 
+  // Initialize repositories
+  final authRepository = FirebaseAuthRepository();
+  final medicineRepository = FirebaseMedicineRepository();
+  final reminderLogRepository = FirebaseReminderLogRepository();
+
   runApp(
-    MultiBlocProvider(
+    MultiRepositoryProvider(
       providers: [
-        BlocProvider<AuthCubit>(
-          create: (context) => AuthCubit(FirebaseAuthRepository()),
-        ),
+        RepositoryProvider.value(value: alarmScheduler),
+        RepositoryProvider.value(value: authRepository),
+        RepositoryProvider.value(value: medicineRepository),
+        RepositoryProvider.value(value: reminderLogRepository),
       ],
-      child: const MedicineReminderApp(),
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<AuthCubit>(
+            create: (context) => AuthCubit(authRepository),
+          ),
+          BlocProvider<MedicineCubit>(
+            create: (context) => MedicineCubit(medicineRepository),
+          ),
+          BlocProvider<ReminderLogCubit>(
+            create: (context) => ReminderLogCubit(reminderLogRepository),
+          ),
+        ],
+        child: const MedicineReminderApp(),
+      ),
     ),
   );
 }

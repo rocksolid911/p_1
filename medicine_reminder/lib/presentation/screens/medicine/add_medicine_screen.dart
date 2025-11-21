@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../../domain/entities/medicine.dart' show MedicineForm, ScheduleType;
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:uuid/uuid.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
+import '../../../domain/entities/medicine.dart';
+import '../../../infrastructure/alarm/native_alarm_scheduler.dart';
+import '../../cubits/medicine/medicine_cubit.dart';
+import '../../cubits/medicine/medicine_state.dart';
 
 class AddMedicineScreen extends StatefulWidget {
   const AddMedicineScreen({super.key});
@@ -13,12 +19,14 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
   final _nameController = TextEditingController();
   final _dosageController = TextEditingController();
   final _notesController = TextEditingController();
+  final _uuid = const Uuid();
 
   MedicineForm _selectedForm = MedicineForm.tablet;
   ScheduleType _scheduleType = ScheduleType.fixedTimes;
   final List<TimeOfDay> _selectedTimes = [];
   DateTime _startDate = DateTime.now();
   DateTime? _endDate;
+  bool _isSaving = false;
 
   @override
   void dispose() {
@@ -82,18 +90,75 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
       return;
     }
 
-    // TODO: Save medicine to database and schedule alarms
+    setState(() {
+      _isSaving = true;
+    });
 
-    if (!mounted) return;
+    try {
+      // Get current user
+      final currentUser = fb_auth.FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception('User not logged in');
+      }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Medicine added successfully!'),
-        backgroundColor: Colors.green,
-      ),
-    );
+      // Convert TimeOfDay to DateTime
+      final now = DateTime.now();
+      final times = _selectedTimes.map((time) {
+        return DateTime(now.year, now.month, now.day, time.hour, time.minute);
+      }).toList();
 
-    Navigator.of(context).pop();
+      // Create medicine entity
+      final medicine = Medicine(
+        id: _uuid.v4(),
+        userId: currentUser.uid,
+        name: _nameController.text.trim(),
+        dosage: _dosageController.text.trim(),
+        form: _selectedForm,
+        scheduleType: _scheduleType,
+        times: times,
+        startDate: _startDate,
+        endDate: _endDate,
+        notes: _notesController.text.trim().isNotEmpty
+            ? _notesController.text.trim()
+            : null,
+        isActive: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      // Save to database
+      if (!mounted) return;
+      await context.read<MedicineCubit>().addMedicine(medicine, currentUser.uid);
+
+      // Schedule alarms
+      if (!mounted) return;
+      final alarmScheduler = context.read<NativeAlarmScheduler>();
+      await alarmScheduler.scheduleMedicineAlarms(medicine);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Medicine added and alarms scheduled!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save medicine: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
   }
 
   @override
@@ -276,8 +341,17 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _saveMedicine,
-                  child: const Text('Save Medicine'),
+                  onPressed: _isSaving ? null : _saveMedicine,
+                  child: _isSaving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text('Save Medicine'),
                 ),
               ),
             ],

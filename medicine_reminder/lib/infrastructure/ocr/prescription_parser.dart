@@ -1,10 +1,179 @@
 import '../../domain/entities/prescription.dart';
 import '../../domain/entities/medicine.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
+import 'dart:convert';
 
 /// Parser for prescription text to extract structured medicine data
+/// Now powered by Gemini AI for more accurate parsing
 class PrescriptionParser {
+  static const String _geminiApiKey = 'AIzaSyCpB8C7QQo8KxH9FvKZrqZqp4B8QzqG4zM'; // TODO: Move to environment variables
+  GenerativeModel? _model;
+
+  PrescriptionParser() {
+    try {
+      _model = GenerativeModel(
+        model: 'gemini-1.5-flash',
+        apiKey: _geminiApiKey,
+      );
+    } catch (e) {
+      print('Failed to initialize Gemini model: $e');
+    }
+  }
+
   /// Parse prescription text into structured data
+  /// Uses Gemini AI if available, falls back to regex parsing
   Future<ParsedPrescription> parse(String text) async {
+    // Try Gemini AI first if available
+    if (_model != null) {
+      try {
+        final geminiResult = await _parseWithGemini(text);
+        if (geminiResult != null) {
+          return geminiResult;
+        }
+      } catch (e) {
+        print('Gemini parsing failed, falling back to regex: $e');
+      }
+    }
+
+    // Fall back to regex-based parsing
+    return _parseWithRegex(text);
+  }
+
+  /// Parse using Gemini AI
+  Future<ParsedPrescription?> _parseWithGemini(String text) async {
+    if (_model == null) return null;
+
+    final prompt = '''
+Analyze the following prescription text and extract structured information.
+Return ONLY a valid JSON object with this exact structure (no markdown, no code blocks):
+
+{
+  "doctorName": "doctor name or null",
+  "patientName": "patient name or null",
+  "prescriptionDate": "YYYY-MM-DD or null",
+  "medicines": [
+    {
+      "name": "medicine name",
+      "dosage": "dosage with unit (e.g., 500 mg, 5 ml)",
+      "form": "tablet|capsule|syrup|injection|drops|inhaler|cream|ointment",
+      "frequency": "OD|BD|TDS|QID or 1-0-1 format or times per day",
+      "duration": 7 (number of days as integer or null),
+      "timing": "before food|after food|with food|at bedtime or null",
+      "suggestedTimes": ["08:00", "14:00", "20:00"] (times in HH:mm format based on frequency)
+    }
+  ]
+}
+
+Rules for suggested times:
+- OD/once daily: ["08:00"]
+- BD/twice daily: ["08:00", "20:00"]
+- TDS/thrice daily: ["08:00", "14:00", "20:00"]
+- QID/4 times daily: ["08:00", "12:00", "16:00", "20:00"]
+- 1-0-1: ["08:00", "20:00"] (morning and night)
+- 1-1-1: ["08:00", "14:00", "20:00"] (morning, afternoon, night)
+
+Prescription text:
+$text
+''';
+
+    final content = [Content.text(prompt)];
+    final response = await _model!.generateContent(content);
+    final responseText = response.text?.trim() ?? '';
+
+    if (responseText.isEmpty) return null;
+
+    // Clean up response - remove markdown code blocks if present
+    String jsonText = responseText;
+    if (jsonText.contains('```json')) {
+      jsonText = jsonText.replaceAll('```json', '').replaceAll('```', '').trim();
+    } else if (jsonText.contains('```')) {
+      jsonText = jsonText.replaceAll('```', '').trim();
+    }
+
+    try {
+      final jsonData = json.decode(jsonText) as Map<String, dynamic>;
+      return _parseGeminiResponse(jsonData);
+    } catch (e) {
+      print('Failed to parse Gemini JSON response: $e');
+      print('Response was: $responseText');
+      return null;
+    }
+  }
+
+  /// Convert Gemini JSON response to ParsedPrescription
+  ParsedPrescription _parseGeminiResponse(Map<String, dynamic> json) {
+    DateTime? prescriptionDate;
+    if (json['prescriptionDate'] != null && json['prescriptionDate'] != 'null') {
+      try {
+        prescriptionDate = DateTime.parse(json['prescriptionDate']);
+      } catch (e) {
+        // Invalid date format
+      }
+    }
+
+    final medicines = <ParsedMedicine>[];
+    if (json['medicines'] is List) {
+      for (final med in json['medicines']) {
+        if (med is! Map<String, dynamic>) continue;
+
+        // Parse suggested times
+        List<DateTime>? suggestedTimes;
+        if (med['suggestedTimes'] is List) {
+          suggestedTimes = [];
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+
+          for (final timeStr in med['suggestedTimes']) {
+            try {
+              final parts = timeStr.toString().split(':');
+              if (parts.length >= 2) {
+                suggestedTimes.add(
+                  today.add(Duration(
+                    hours: int.parse(parts[0]),
+                    minutes: int.parse(parts[1]),
+                  ))
+                );
+              }
+            } catch (e) {
+              // Skip invalid time
+            }
+          }
+        }
+
+        // Parse medicine form
+        MedicineForm? form;
+        if (med['form'] != null && med['form'] != 'null') {
+          try {
+            form = MedicineForm.values.firstWhere(
+              (e) => e.name == med['form'].toString().toLowerCase()
+            );
+          } catch (e) {
+            // Invalid form
+          }
+        }
+
+        medicines.add(ParsedMedicine(
+          name: med['name']?.toString() ?? 'Unknown',
+          dosage: med['dosage']?.toString(),
+          form: form,
+          frequency: med['frequency']?.toString(),
+          duration: med['duration'] is int ? med['duration'] : null,
+          timing: med['timing']?.toString() != 'null' ? med['timing']?.toString() : null,
+          suggestedTimes: suggestedTimes,
+        ));
+      }
+    }
+
+    return ParsedPrescription(
+      doctorName: json['doctorName']?.toString() != 'null' ? json['doctorName']?.toString() : null,
+      patientName: json['patientName']?.toString() != 'null' ? json['patientName']?.toString() : null,
+      prescriptionDate: prescriptionDate,
+      medicines: medicines,
+    );
+  }
+
+  /// Fallback regex-based parsing
+  Future<ParsedPrescription> _parseWithRegex(String text) async {
     try {
       final lines = text.split('\n').where((line) => line.trim().isNotEmpty).toList();
 
