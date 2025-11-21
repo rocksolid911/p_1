@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../domain/entities/medicine.dart';
+import '../../../domain/entities/medicine.dart' show MedicineForm, ScheduleType;
 
 class AddMedicineScreen extends StatefulWidget {
   const AddMedicineScreen({super.key});
