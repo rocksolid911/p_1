@@ -28,6 +28,9 @@ void main() async {
   final alarmScheduler = NativeAlarmScheduler();
   await alarmScheduler.initialize();
 
+  // Request notification permissions
+  await alarmScheduler.requestAlarmPermissions();
+
   // Initialize repositories
   final authRepository = FirebaseAuthRepository();
   final medicineRepository = FirebaseMedicineRepository();

@@ -115,6 +115,7 @@ class NativeAlarmScheduler implements AlarmRepository {
         tz.local,
       );
 
+      // Use time matching for daily recurring alarms
       await _notifications.zonedSchedule(
         notificationId,
         'Time to take your medicine',
@@ -124,7 +125,7 @@ class NativeAlarmScheduler implements AlarmRepository {
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         // uiLocalNotificationDateInterpretation:
         //     UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.dateAndTime,
+        matchDateTimeComponents: DateTimeComponents.time, // Match time only for daily recurrence
         payload: '$medicineId|${scheduledTime.millisecondsSinceEpoch}',
       );
     } catch (e) {
@@ -161,35 +162,29 @@ class NativeAlarmScheduler implements AlarmRepository {
     DateTime start,
     DateTime end,
   ) async {
-    var currentDate = start;
+    // Schedule each time as a daily recurring alarm
+    for (final time in medicine.times) {
+      final now = DateTime.now();
+      var scheduledTime = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        time.hour,
+        time.minute,
+      );
 
-    while (currentDate.isBefore(end)) {
-      for (final time in medicine.times) {
-        final scheduledTime = DateTime(
-          currentDate.year,
-          currentDate.month,
-          currentDate.day,
-          time.hour,
-          time.minute,
-        );
-
-        if (scheduledTime.isAfter(start)) {
-          await scheduleAlarm(
-            medicineId: medicine.id,
-            medicineName: medicine.name,
-            dosage: medicine.dosage,
-            scheduledTime: scheduledTime,
-            notes: medicine.notes,
-          );
-        }
+      // If the time has passed today, schedule for tomorrow
+      if (scheduledTime.isBefore(now)) {
+        scheduledTime = scheduledTime.add(const Duration(days: 1));
       }
 
-      currentDate = currentDate.add(const Duration(days: 1));
-
-      // Limit to next 30 days to avoid too many scheduled notifications
-      if (currentDate.isAfter(start.add(const Duration(days: 30)))) {
-        break;
-      }
+      await scheduleAlarm(
+        medicineId: medicine.id,
+        medicineName: medicine.name,
+        dosage: medicine.dosage,
+        scheduledTime: scheduledTime,
+        notes: medicine.notes,
+      );
     }
   }
 

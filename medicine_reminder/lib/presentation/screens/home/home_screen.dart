@@ -181,13 +181,18 @@ class _HomeContent extends StatefulWidget {
 }
 
 class _HomeContentState extends State<_HomeContent> {
+  bool _hasLoaded = false;
+
   @override
-  void initState() {
-    super.initState();
-    // Load medicines when home screen opens
-    final currentUser = fb_auth.FirebaseAuth.instance.currentUser;
-    if (currentUser != null) {
-      context.read<MedicineCubit>().watchMedicines(currentUser.uid);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Load medicines when home screen opens (only once)
+    if (!_hasLoaded) {
+      final currentUser = fb_auth.FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        context.read<MedicineCubit>().watchMedicines(currentUser.uid);
+        _hasLoaded = true;
+      }
     }
   }
 
